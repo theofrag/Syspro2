@@ -254,6 +254,7 @@ void* worker_thread(void* blockSize){
         
         // destroy semaphore if all files sent
         if(dead == true){
+
             // erase data from map
             workersMutexes.erase(sock);
             mapNumbers.erase(sock);
@@ -326,12 +327,14 @@ int main(int argc, char** argv){
         perror_exit(error);   
     }
     
-    struct sockaddr_in server;
+    struct sockaddr_in server,client;
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = htonl(INADDR_ANY);
     server.sin_port = htons(port);
 
     struct sockaddr_in* serverptr = &server;
+
+    struct sockaddr *clientptr=(struct sockaddr *)&client;
 
     // bind socket to address
     if(bind(sock,(struct sockaddr *)serverptr,sizeof(server))){
@@ -350,13 +353,23 @@ int main(int argc, char** argv){
 
     // accept connections etc
     while(1){   
+        
+        socklen_t clientlen=sizeof(client);
 
         // accept
         int newSocket;
-        if((newSocket = accept(sock,NULL,NULL))<0){
+        if((newSocket = accept(sock,clientptr,&clientlen))<0){
             char error[] = "accept";
             perror_exit(error); 
         }
+
+        // take client name
+        struct hostent *rem;
+        if ((rem = gethostbyaddr((char *) &client.sin_addr.s_addr, sizeof(client.sin_addr.s_addr), client.sin_family)) == NULL){
+            char error[] = "gethostbyaddr";
+            perror_exit(error);
+        }
+        cout <<"Accepted connection from "<< rem->h_name<<endl;
 
         // insert mutex to map
         pthread_mutex_t* mx = new pthread_mutex_t;
