@@ -5,6 +5,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#include <dirent.h>
+
 #include <netinet/in.h> /* internet sockets */
 #include <netdb.h>  /* gethostbyaddr */
 #include <unistd.h> /* fork */
@@ -12,15 +14,20 @@
 
 #include <string.h>
 
+#include <sys/stat.h>
+
 #include <arpa/inet.h>
 
 #include <fcntl.h>
+
+#include <errno.h>
 
 void perror_exit(char *message) {
     perror(message);
     exit(EXIT_FAILURE);
 }
 
+void create_dir_files(char* pathAndFile);
 
 int main(void){
 
@@ -36,8 +43,8 @@ int main(void){
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1 )
         perror_exit( "socket" );
 
-    // looup server's address and connect there
     struct in_addr myaddress;
+    // convert ipv4 form to binary
     inet_aton(addr,&myaddress);
 
     struct sockaddr_in server;
@@ -47,13 +54,13 @@ int main(void){
     server.sin_addr = myaddress;
     server.sin_port = htons(port);
 
+    // connect to server
     if (connect(sock, serverptr, sizeof(server)) < 0)
         perror_exit("connect");
     
     printf("Connecting to %s port %d\n", addr, port);
 
-    // send dir name
-
+    // send dir name to server
     if (write(sock,dirName,strlen(dirName))<0)
         perror_exit("write");
     
@@ -64,26 +71,32 @@ int main(void){
     // read file data
     int time=0;
     FILE* sock_fp;
+    
+    int newFile = 1;
+
     if ((sock_fp = fdopen(sock,"r")) == NULL)
         perror_exit("fdopen");
 
-        char fromfgets[20];
-        while(fgets(fromfgets,21,sock_fp)!=NULL){
+        char fromfgets[256];
+        while(fgets(fromfgets,256,sock_fp)!=NULL){
             
+            if((newFile == 1) && (strcmp(fromfgets,"CONTERM\n")!=0) ){
+                printf("Received: %s\n",fromfgets);
+                newFile = 0;
+                // create_dir_files(fromfgets);
+            }
 
             if(strcmp(fromfgets,"CONTERM\n")==0){
                 break;
             }
-            printf("%s",fromfgets);
+            if(strcmp(fromfgets,"ENDOFFILE\n")==0){
+                newFile=1;
+            }
+            // printf("%s",fromfgets);
 
         }
 
 
-    // write data to the file
-    
-    // increase counter
-    
-    // if counter == filenumber break from while(1)
 
     // close socket
     // close connection
@@ -92,7 +105,44 @@ int main(void){
 
 }
 
+void create_dir_files(char* pathAndFile){
 
-// FILE* sock_fp;
-//         if ((sock_fp = fdopen(sock,"r+")) == NULL)
-//             perror_exit("fdopen");
+    char* temp = malloc(strlen(pathAndFile)+1);
+
+    char* t2 = malloc(strlen(pathAndFile)+1);
+
+    int count=0;
+
+    int first = 1;
+    for(int i=0; i<strlen(pathAndFile); i++){
+
+        if(pathAndFile[i] == '.'){
+            if(first == 1){
+                temp[i] = pathAndFile[i];
+                first=0;
+            }
+            else
+                count++;
+        }
+        else if(pathAndFile[i]== '/'){
+            temp[i-count] = pathAndFile[i];
+
+                if((mkdir(temp, 0777)<0 && (errno != EEXIST))){
+                    perror("mkdir");
+                }
+          
+        }
+        else{
+
+            temp[i-count] = pathAndFile[i];
+        }
+
+    }
+            
+        printf("%s\n",temp);
+        if(open("./testa/a/b/filename",O_EXCL|O_RDWR,S_IRWXU)<0){
+
+        
+        perror("open");
+        }
+}
