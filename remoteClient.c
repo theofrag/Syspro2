@@ -27,7 +27,7 @@ void perror_exit(char *message) {
     exit(EXIT_FAILURE);
 }
 
-void create_dir_files(char* pathAndFile);
+int create_dir_files(char* pathAndFile);
 
 int main(void){
 
@@ -44,6 +44,7 @@ int main(void){
         perror_exit( "socket" );
 
     struct in_addr myaddress;
+
     // convert ipv4 form to binary
     inet_aton(addr,&myaddress);
 
@@ -73,26 +74,34 @@ int main(void){
     FILE* sock_fp;
     
     int newFile = 1;
-
+    
     if ((sock_fp = fdopen(sock,"r")) == NULL)
         perror_exit("fdopen");
 
         char fromfgets[256];
+        int fd;
         while(fgets(fromfgets,256,sock_fp)!=NULL){
             
             if((newFile == 1) && (strcmp(fromfgets,"CONTERM\n")!=0) ){
-                printf("Received: %s\n",fromfgets);
                 newFile = 0;
-                // create_dir_files(fromfgets);
+                fd = create_dir_files(fromfgets);
+
             }
 
-            if(strcmp(fromfgets,"CONTERM\n")==0){
+            else if(strcmp(fromfgets,"CONTERM\n")==0){
                 break;
             }
-            if(strcmp(fromfgets,"ENDOFFILE\n")==0){
+            else if(strcmp(fromfgets,"ENDOFFILE\n")==0){
                 newFile=1;
             }
-            // printf("%s",fromfgets);
+            else{
+                int sz;
+                if((sz = write(fd,fromfgets,strlen(fromfgets)))<0){
+                    perror("write");
+                    exit(1);
+                }
+            }
+
 
         }
 
@@ -105,7 +114,7 @@ int main(void){
 
 }
 
-void create_dir_files(char* pathAndFile){
+int create_dir_files(char* pathAndFile){
 
     char* temp = malloc(strlen(pathAndFile)+1);
 
@@ -133,16 +142,27 @@ void create_dir_files(char* pathAndFile){
           
         }
         else{
-
+ 
             temp[i-count] = pathAndFile[i];
         }
 
     }
             
-        printf("%s\n",temp);
-        if(open("./testa/a/b/filename",O_EXCL|O_RDWR,S_IRWXU)<0){
+        int fd;
+        temp[strlen(temp)-1]='\0';
 
+        if( (fd = open(temp,O_CREAT|O_RDWR ,0777))<0){
+
+            if(errno == EEXIST){
+                unlink(temp);
+                if((fd = open(temp,O_EXCL|O_RDWR ,0777))<0){
+                    perror("open1");
+                    exit(2);
+                }
+            }
         
-        perror("open");
+            perror("open2");
+            exit(3);
         }
+        return fd;
 }

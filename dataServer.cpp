@@ -17,6 +17,7 @@
 #include <string.h>
 
 #include <map>
+#include <vector>
 
 #define  MAX_CON 40
 #define  POOL_SIZE 10
@@ -27,6 +28,7 @@
 
 using namespace std;
 
+vector<char*> dirContents(char* path);
 
 // from lectures
 typedef struct{
@@ -94,6 +96,7 @@ void perror_exit(char *message) {
 
 void* communication_thread(void* socket){
 
+
     char dirName[256] ;
     int comSocket = (long)socket;
 
@@ -107,61 +110,24 @@ void* communication_thread(void* socket){
  
     cout<<"[Thread: "<<pthread_self()<<"]: About to scan directory "<< dirName<<endl;
 
-    // read number of files in folder and its subfolders
-    int numberOfFiles = 0;
 
-    // find <path/folder> -type f -printf "%p\n" | wc -l
-    char command[256];
-    snprintf(command,256+strlen(dirName),"find %s -type f -printf \"%%p\\n\" | wc -l ",dirName);
-    
-    // popen to invoke  find <path/folder> -type f -printf "%p\n" | wc -l
-    FILE* pipe_fp;
-    if( (pipe_fp =  popen(command,"r")) == NULL){
-        char error[] = "popen";
-        perror_exit(error);
-    }
-
-    // tranfer data from find to socket
-
-    char numstr[5];
-    if (( fgets(numstr,sizeof(int)+1,pipe_fp))==NULL ){
-        char error[] = "fgets";
-        perror_exit(error);
-    }
+    // take filenames and their paths
+    vector<char*> contents = dirContents(dirName);
     
 
-    // close pipe
-    if( pclose(pipe_fp)<0){
-        char error[] = "pclose";
-        perror_exit(error);
-    }
-
-    // add number to map
-    int num = atoi(numstr); 
+    // add total number to map
+    int num = contents.size(); 
     mapNumbers.insert(pair<int,int>(comSocket,num));
 
 
-    // retrieve file names from server using popen
-    snprintf(command,256 + strlen(dirName),"find %s -type f -printf \"%%p\\n\"",dirName);
-    if( (pipe_fp =  popen(command,"r")) == NULL){
-        char error[] = "popen";
-        perror_exit(error);
-    }
+    // add file namesto queue
 
-    char fname[256];
-    while (( fgets(fname,256,pipe_fp)) != NULL ){
-
-        fname[strlen(fname)-1] = '\0';
+    for(int i=0;i<contents.size();i++){
+        
         char temp[300];
-        snprintf(temp,300,"%s %d",fname,comSocket);
+        snprintf(temp,300,"%s %d",contents[i],comSocket);
         place(&pool,temp);
         pthread_cond_signal(&cond_nonempty);
-    }
-
-    // close pipe
-    if( pclose(pipe_fp)<0){
-        char error[] = "pclose";
-        perror_exit(error);
     }
       
 }
@@ -379,7 +345,48 @@ int main(int argc, char** argv){
         // create thread and assign to communication thread
         pthread_t newThread;
         pthread_create(&newThread,0,communication_thread,(void*)newSocket);
+
         
     }
+
+}
+
+
+// helper functions
+
+vector<char*> dirContents(char* path){
+
+    vector<char*> contents;
+
+    DIR * d = opendir(path);
+
+    if(d==NULL){
+        perror("opendir");
+        exit(2);
+    }
+
+    struct dirent * dir; // for the directory entries
+
+    errno = 0;  // set errno to 0 before
+
+    
+
+    while ((dir = readdir(d))!=NULL){
+        if(dir-> d_type != DT_DIR){
+            char* entry = new char[sizeof(char)*(strlen(dir->d_name)+ strlen(path))+1];
+            snprintf(entry,257,"%s/%s",path,dir->d_name);
+            contents.push_back(entry);
+        }
+        else if(dir -> d_type == DT_DIR && strcmp(dir->d_name,".")!=0 && strcmp(dir->d_name,"..")!=0 ){ // if it is directory
+
+            char dirpath[256];
+            snprintf(dirpath,257,"%s/%s",path,dir->d_name);
+            vector<char*> toappend = dirContents(dirpath);
+            contents.insert(contents.end(),toappend.begin(),toappend.end());
+        }
+    }
+
+    closedir(d);
+    return contents;
 
 }
