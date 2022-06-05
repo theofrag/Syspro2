@@ -46,6 +46,7 @@ pthread_cond_t cond_nonempty;
 pthread_cond_t cond_nonfull;
 pool_t pool;
 
+// from lectures
 void place(pool_t * pool, char* data) {
 
     pthread_mutex_lock(&mtx);
@@ -63,7 +64,7 @@ void place(pool_t * pool, char* data) {
 
 }
 
-
+// from lectures
 char* obtain(pool_t * pool) {
     
     pthread_mutex_lock(&mtx);
@@ -80,7 +81,7 @@ char* obtain(pool_t * pool) {
     return data;
 }
 
-
+// from lectures
 void initialize(pool_t * pool) {
     pool->start = 0;
     pool->end = -1;
@@ -93,7 +94,7 @@ void perror_exit(char *message) {
     exit(EXIT_FAILURE);
 }
 
-
+ 
 void* communication_thread(void* socket){
 
 
@@ -101,19 +102,22 @@ void* communication_thread(void* socket){
     int comSocket = (long)socket;
 
     // read dirName from socket
-    if(read(comSocket,dirName,256)<0){
-
+    int rd=0;
+    if((rd = read(comSocket,dirName,256))<0){
+ 
         //ISO C++ forbids converting a string constant to ‘char*’
         char error[] = "read";
         perror_exit(error);
     }
- 
+    dirName[rd] = '\0';
+
     cout<<"[Thread: "<<pthread_self()<<"]: About to scan directory "<< dirName<<endl;
 
 
     // take filenames and their paths
-    vector<char*> contents = dirContents(dirName);
     
+    vector<char*> contents = dirContents(dirName);
+
 
     // add total number to map
     int num = contents.size(); 
@@ -121,13 +125,25 @@ void* communication_thread(void* socket){
 
 
     // add file namesto queue
-
     for(int i=0;i<contents.size();i++){
         
         char temp[300];
         snprintf(temp,300,"%s %d",contents[i],comSocket);
+        
         place(&pool,temp);
         pthread_cond_signal(&cond_nonempty);
+    }
+
+    // delete memory in heap from dirContents 
+    for(int i=0;i<contents.size();i++){
+        delete[] contents[i];
+    }
+    contents.clear();
+    
+    // Detach thread
+    if (pthread_detach(pthread_self())) { 
+        char error[] = "pthread_detach";
+        perror_exit(error);
     }
       
 }
@@ -214,7 +230,7 @@ void* worker_thread(void* blockSize){
         }else{
             mapNumbers[sock] = n;
         }
-
+        delete[] consumed;
         // up socket semaphore
         pthread_mutex_unlock(mx);
         
@@ -373,13 +389,16 @@ vector<char*> dirContents(char* path){
 
     while ((dir = readdir(d))!=NULL){
         if(dir-> d_type != DT_DIR){
-            char* entry = new char[sizeof(char)*(strlen(dir->d_name)+ strlen(path))+1];
-            snprintf(entry,257,"%s/%s",path,dir->d_name);
+            char* entry = new char[sizeof(char)*(strlen(dir->d_name)+ strlen(path)+2)];
+            snprintf(entry,strlen(dir->d_name)+ strlen(path)+2,"%s/%s",path,dir->d_name);
+            cout<<entry<<endl;
             contents.push_back(entry);
         }
-        else if(dir -> d_type == DT_DIR && strcmp(dir->d_name,".")!=0 && strcmp(dir->d_name,"..")!=0 ){ // if it is directory
 
-            char dirpath[256];
+        // if it is directory
+        else if(dir -> d_type == DT_DIR && strcmp(dir->d_name,".")!=0 && strcmp(dir->d_name,"..")!=0 ){ 
+
+            char dirpath[257];
             snprintf(dirpath,257,"%s/%s",path,dir->d_name);
             vector<char*> toappend = dirContents(dirpath);
             contents.insert(contents.end(),toappend.begin(),toappend.end());

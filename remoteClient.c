@@ -29,13 +29,41 @@ void perror_exit(char *message) {
 
 int create_dir_files(char* pathAndFile);
 
-int main(void){
+int main(int argc,char* argv[]){
 
-    char* addr = "127.0.0.1";
+    
+
+    char addr[20];
     int port = 12500;
     
-    char* dirName = "./test";
+    char dirName[256];
+
+
+    // control arguments
+    if(argc != 7){
+        printf("Give right number of arguments\n");
+        return -1;
+    }else{
+        for(int i=1;i<argc;i=i+2){
+            if(strcmp(argv[i],"-i")==0){
+                strcpy(addr,argv[i+1]);
+            }
+            else if(strcmp(argv[i],"-p")==0){
+                port = atoi(argv[i+1]);
+            }
+            else if(strcmp(argv[i],"-d")==0){
+                strcpy(dirName,argv[i+1]);
+            }
+            else{
+                printf("Give right arguments\n");
+                return -1;
+            }
+        }
+    }
     
+    printf("Client's parameters are:\n");
+    printf("ServerIP: %s\n",addr);
+    printf("port: %d\n",port);
     printf("directory: %s\n",dirName);
 
     // create socket
@@ -106,7 +134,7 @@ int main(void){
         }
 
 
-
+    //TODO
     // close socket
     // close connection
 
