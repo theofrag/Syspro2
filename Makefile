@@ -3,7 +3,7 @@ remoteClient: remoteClient.o
 	gcc -g remoteClient.o -o remoteClient 
 
 dataServer: dataServer.o
-	g++ -g dataServer.o -o dataServer -lpthread
+	g++ -g3 dataServer.o -o dataServer -lpthread
 
 runServer:dataServer
 	./dataServer -p 12500 -q 5 -b 512 -s 5

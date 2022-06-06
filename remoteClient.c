@@ -108,21 +108,49 @@ int main(int argc,char* argv[]){
 
         char fromfgets[256];
         int fd;
+        int remained=0;
+        int sofar=0;
+        char* fname;
         while(fgets(fromfgets,256,sock_fp)!=NULL){
+
+
+            if((newFile == 1) && (strcmp(fromfgets,"\n")==0) ){
+
+                continue;
+            }
             
             if((newFile == 1) && (strcmp(fromfgets,"CONTERM\n")!=0) ){
-                newFile = 0;
+                newFile = 2;
                 fd = create_dir_files(fromfgets);
+                fname = malloc(sizeof(char)*strlen(fromfgets)+1);
+                strcpy(fname,fromfgets);
+                fname[strlen(fname)-1]='\0';
+                continue;
 
+            }
+            else if(newFile == 2){
+                newFile = 0;
+                fromfgets[strlen(fromfgets)-1]='\0';
+                remained = atoi(fromfgets);
+
+                continue;
             }
 
             else if(strcmp(fromfgets,"CONTERM\n")==0){
                 break;
             }
-            else if(strcmp(fromfgets,"ENDOFFILE\n")==0){
-                newFile=1;
+            sofar+= strlen(fromfgets);
+            
+            if(sofar >= remained){
+
+                printf("Received: %s\n",fname);
+                free(fname);
+                sofar=0;
+                remained = 0;
+                newFile = 1;
             }
-            else{
+
+            else{          
                 int sz;
                 if((sz = write(fd,fromfgets,strlen(fromfgets)))<0){
                     perror("write");
@@ -134,9 +162,8 @@ int main(int argc,char* argv[]){
         }
 
 
-    //TODO
-    // close socket
-    // close connection
+    fclose(sock_fp);
+    close(sock);
 
     return 0;
 
@@ -145,8 +172,6 @@ int main(int argc,char* argv[]){
 int create_dir_files(char* pathAndFile){
 
     char* temp = malloc(strlen(pathAndFile)+1);
-
-    char* t2 = malloc(strlen(pathAndFile)+1);
 
     int count=0;
 
@@ -157,24 +182,29 @@ int create_dir_files(char* pathAndFile){
             if(first == 1){
                 temp[i] = pathAndFile[i];
                 first=0;
-            }
+            } 
             else
-                count++;
+                count++;            
         }
+
         else if(pathAndFile[i]== '/'){
             temp[i-count] = pathAndFile[i];
-
-                if((mkdir(temp, 0777)<0 && (errno != EEXIST))){
-                    perror("mkdir");
-                }
+            temp[i-count+1] = '\0';
+            if((mkdir(temp, 0777)<0 && (errno != EEXIST))){
+                perror("mkdir");
+            }
+            
           
         }
         else{
             first = 1;
             temp[i-count] = pathAndFile[i];
+            temp[i-count+1] = '\0';
         }
+        
 
     }
+
             
         int fd;
         temp[strlen(temp)-1]='\0';
@@ -192,5 +222,8 @@ int create_dir_files(char* pathAndFile){
             perror("open2");
             exit(3);
         }
+
+        free(temp);
+        
         return fd;
 }

@@ -19,6 +19,9 @@
 #include <map>
 #include <vector>
 
+#include <sys/stat.h>
+
+
 #define  MAX_CON 40
 #define  POOL_SIZE 10
 #define WORKERS 20
@@ -188,15 +191,31 @@ void* worker_thread(void* blockSize){
         
         }
 
+        // send number of bytes
+        struct stat st;
+        stat(filename, &st);
+        long size = st.st_size;
+        char sz[32];
+        snprintf(sz,32,"%ld",size);
+
+        if( write(sock,sz,strlen(sz))<0 ){
+            char error[] = "write";
+            perror_exit(error);
+        
+        }
+        if( write(sock,"\n",strlen("\n"))<0 ){
+            char error[] = "write";
+            perror_exit(error);
+        
+        }
+
         // open file
         FILE* file_fp;
         if ((file_fp = fopen(filename,"r"))== NULL){
             char error[] = "fopen";
-            perror_exit(error);
-        
+            perror_exit(error);  
         }
         
-
         cout<<"[Thread: "<<pthread_self()<<"]: About to read file "<< filename<<endl;
 
 
@@ -209,7 +228,7 @@ void* worker_thread(void* blockSize){
 
 
         write(sock,"\n",1);
-        write(sock,"ENDOFFILE\n",10);
+        // write(sock,"ENDOFFILE\n",10);
 
         // reduce counter of filenames
         int n = mapNumbers.at(sock);
@@ -218,7 +237,7 @@ void* worker_thread(void* blockSize){
         if(n==0){
             
             // write CONTERM so client know that all files have been send
-            char terminate[] = "CONTERM\n";
+            char terminate[] = "\nCONTERM\n";
 
             if( write(sock,terminate,strlen(terminate))<0 ){
                 char error[] = "write";
