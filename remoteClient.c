@@ -209,18 +209,17 @@ int create_dir_files(char* pathAndFile){
         int fd;
         temp[strlen(temp)-1]='\0';
 
-        if( (fd = open(temp,O_CREAT|O_RDWR ,0777))<0){
+        if( (fd = open(temp,O_CREAT|O_RDWR|O_EXCL ,0777))<0){
 
             if(errno == EEXIST){
+
                 unlink(temp);
-                if((fd = open(temp,O_EXCL|O_RDWR ,0777))<0){
+                if((fd = open(temp,O_CREAT|O_RDWR|O_EXCL ,0777))<0){
                     perror("open1");
                     exit(2);
                 }
             }
         
-            perror("open2");
-            exit(3);
         }
 
         free(temp);
