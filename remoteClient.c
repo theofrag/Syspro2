@@ -170,7 +170,7 @@ int create_dir_files(char* pathAndFile){
           
         }
         else{
- 
+            first = 1;
             temp[i-count] = pathAndFile[i];
         }
 
