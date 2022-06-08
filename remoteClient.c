@@ -142,36 +142,23 @@ int main(int argc,char* argv[]){
             }
             sofar+= strlen(fromfgets);
 
-            
-            // if(sofar > remained){
-                
-                
-            //     printf("Received: %s %d\n",fname,sofar);
-            //     free(fname);
-            //     sofar=0;
-            //     remained = 0;
-            //     newFile = 1;
-            // }
+   
 
-            // else{          
+            if(sofar > remained){
+                printf("Received: %s\n",fname);
+                getchar();
+                fromfgets[strlen(fromfgets)-1]='\0';
+                free(fname);
+                sofar=0;
+                remained = 0;
+                newFile = 1;
+            }
 
-                if(sofar > remained){
-                    printf("Received: %s\n",fname);
-                    getchar();
-                    fromfgets[strlen(fromfgets)-1]='\0';
-                    free(fname);
-                    sofar=0;
-                    remained = 0;
-                    newFile = 1;
-                }
-
-                int sz;
-                if((sz = write(fd,fromfgets,strlen(fromfgets)))<0){
-                    perror("write");
-                    exit(1);
-                }
-            // }
-
+            int sz;
+            if((sz = write(fd,fromfgets,strlen(fromfgets)))<0){
+                perror("write");
+                exit(1);
+            }
 
         }
 

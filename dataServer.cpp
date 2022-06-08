@@ -107,7 +107,7 @@ void* communication_thread(void* socket){
     
     // socket was dynamically allocated in main thread
     delete (int*)socket;
-    cout<<"com socket: "<<comSocket<<endl;
+
 
     // read dirName from socket
     int rd=0;
@@ -163,7 +163,7 @@ void* worker_thread(void* blockSize){
 
     bool dead;
     int blocksiz = *(int*)blockSize;
-    cout<<blocksiz<<endl;
+
 
     while(1){
         dead = false;
@@ -220,7 +220,6 @@ void* worker_thread(void* blockSize){
         // open file
         FILE* file_fp;
         if ((file_fp = fopen(filename,"r"))== NULL){
-            cout<<filename<<" elalalala"<<endl;
             char error[] = "fopen";
             perror_exit(error);  
         }
@@ -422,7 +421,6 @@ vector<char*> dirContents(char* path){
         if(dir-> d_type != DT_DIR){
             char* entry = new char[sizeof(char)*(strlen(dir->d_name)+ strlen(path)+2)];
             snprintf(entry,strlen(dir->d_name)+ strlen(path)+2,"%s/%s",path,dir->d_name);
-            cout<<entry<<endl;
             contents.push_back(entry);
         }
 
