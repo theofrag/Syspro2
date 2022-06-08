@@ -115,7 +115,7 @@ int main(int argc,char* argv[]){
 
 
             if((newFile == 1) && (strcmp(fromfgets,"\n")==0) ){
-
+                
                 continue;
             }
             
@@ -132,6 +132,7 @@ int main(int argc,char* argv[]){
                 newFile = 0;
                 fromfgets[strlen(fromfgets)-1]='\0';
                 remained = atoi(fromfgets);
+                printf("%d\n",remained);
 
                 continue;
             }
@@ -140,23 +141,36 @@ int main(int argc,char* argv[]){
                 break;
             }
             sofar+= strlen(fromfgets);
+
             
-            if(sofar >= remained){
+            // if(sofar > remained){
+                
+                
+            //     printf("Received: %s %d\n",fname,sofar);
+            //     free(fname);
+            //     sofar=0;
+            //     remained = 0;
+            //     newFile = 1;
+            // }
 
-                printf("Received: %s\n",fname);
-                free(fname);
-                sofar=0;
-                remained = 0;
-                newFile = 1;
-            }
+            // else{          
 
-            else{          
+                if(sofar > remained){
+                    printf("Received: %s\n",fname);
+                    getchar();
+                    fromfgets[strlen(fromfgets)-1]='\0';
+                    free(fname);
+                    sofar=0;
+                    remained = 0;
+                    newFile = 1;
+                }
+
                 int sz;
                 if((sz = write(fd,fromfgets,strlen(fromfgets)))<0){
                     perror("write");
                     exit(1);
                 }
-            }
+            // }
 
 
         }

@@ -22,10 +22,8 @@
 #include <sys/stat.h>
 
 
-#define  MAX_CON 40
-#define  POOL_SIZE 10
-#define WORKERS 20
-#define BLOCK_SIZE 512
+#define  MAX_CON 50
+
 
 #include <iostream>
 
@@ -35,10 +33,11 @@ vector<char*> dirContents(char* path);
 
 // from lectures
 typedef struct{
-    char* data[POOL_SIZE];
+    char** data;
     int start;
     int end;
     int count;
+    int pool_size;
 }pool_t;
 
 map <int, pthread_mutex_t*> workersMutexes;
@@ -53,11 +52,11 @@ pool_t pool;
 void place(pool_t * pool, char* data) {
 
     pthread_mutex_lock(&mtx);
-    while (pool->count >= POOL_SIZE) {
+    while (pool->count >= pool->pool_size) {
         pthread_cond_wait(&cond_nonfull, &mtx);
     }
 
-    pool->end = (pool->end + 1) % POOL_SIZE;
+    pool->end = (pool->end + 1) % (pool->pool_size);
     pool->data[pool->end] = new char[strlen(data)+1];
 
     strcpy(pool->data[pool->end],data);
@@ -77,7 +76,7 @@ char* obtain(pool_t * pool) {
     char* data;
     data = pool->data[pool->start];
 
-    pool->start = (pool->start + 1) % POOL_SIZE;
+    pool->start = (pool->start + 1) % (pool->pool_size);
     pool->count--;
     cout << "[Thread: "<<pthread_self()<<"]: Received task: < "<<data<<">"<<endl;
     pthread_mutex_unlock(&mtx);
@@ -85,10 +84,12 @@ char* obtain(pool_t * pool) {
 }
 
 // from lectures
-void initialize(pool_t * pool) {
+void initialize(pool_t * pool, int pool_size) {
+    pool->data = new char*[sizeof(char*)*pool_size];
     pool->start = 0;
     pool->end = -1;
     pool->count = 0;
+    pool->pool_size = pool_size;
 }
 
 
@@ -102,7 +103,11 @@ void* communication_thread(void* socket){
 
 
     char dirName[256] ;
-    int comSocket = (long)socket;
+    int comSocket = *(int*)socket;
+    
+    // socket was dynamically allocated in main thread
+    delete (int*)socket;
+    cout<<"com socket: "<<comSocket<<endl;
 
     // read dirName from socket
     int rd=0;
@@ -127,7 +132,7 @@ void* communication_thread(void* socket){
     mapNumbers.insert(pair<int,int>(comSocket,num));
 
 
-    // add file namesto queue
+    // add file names to queue
     for(int i=0;i<contents.size();i++){
         
         char temp[300];
@@ -135,6 +140,7 @@ void* communication_thread(void* socket){
         
         place(&pool,temp);
         pthread_cond_signal(&cond_nonempty);
+        // pthread_cond_broadcast(&cond_nonempty);
     }
 
     // delete memory in heap from dirContents 
@@ -148,14 +154,16 @@ void* communication_thread(void* socket){
         char error[] = "pthread_detach";
         perror_exit(error);
     }
-      
+    
+    pthread_exit(NULL);
 }
 
 
 void* worker_thread(void* blockSize){
 
     bool dead;
-    int blocksiz = (long)blockSize;
+    int blocksiz = *(int*)blockSize;
+    cout<<blocksiz<<endl;
 
     while(1){
         dead = false;
@@ -212,6 +220,7 @@ void* worker_thread(void* blockSize){
         // open file
         FILE* file_fp;
         if ((file_fp = fopen(filename,"r"))== NULL){
+            cout<<filename<<" elalalala"<<endl;
             char error[] = "fopen";
             perror_exit(error);  
         }
@@ -221,14 +230,13 @@ void* worker_thread(void* blockSize){
 
         // read data of blocksize
         // read from file and write it to socket
-        char fromfgets[BLOCK_SIZE];
-        while(fgets(fromfgets,BLOCK_SIZE+1,file_fp)){
+        char fromfgets[blocksiz];
+        while(fgets(fromfgets,blocksiz+1,file_fp)){
             write(sock,fromfgets,strlen(fromfgets));
         }
 
 
         write(sock,"\n",1);
-        // write(sock,"ENDOFFILE\n",10);
 
         // reduce counter of filenames
         int n = mapNumbers.at(sock);
@@ -272,7 +280,6 @@ int main(int argc, char** argv){
 
     int sock;
     int port = 12500;
-    int workers = WORKERS;
     int queue_size;
     
     int thread_pool_size;
@@ -308,7 +315,7 @@ int main(int argc, char** argv){
 
 
 
-    initialize(&pool);
+    initialize(&pool,queue_size);
 
     // init mutexes and cond variables for consumer producer model
     pthread_mutex_init(&mtx, 0);
@@ -317,9 +324,9 @@ int main(int argc, char** argv){
 
 
     // create worker threads
-    for(int i=0;i<workers;i++){
+    for(int i=0;i<thread_pool_size;i++){
         pthread_t newThread;
-        pthread_create(&newThread,0,worker_thread,NULL);
+        pthread_create(&newThread,0,worker_thread,(void*)&block_size);
     }
 
     // create a socket
@@ -358,6 +365,9 @@ int main(int argc, char** argv){
         socklen_t clientlen=sizeof(client);
 
         // accept
+        // race condition
+        // dont pass newSocket as it is in thw newthread
+        // it may be changed by another thread
         int newSocket;
         if((newSocket = accept(sock,clientptr,&clientlen))<0){
             char error[] = "accept";
@@ -379,7 +389,9 @@ int main(int argc, char** argv){
 
         // create thread and assign to communication thread
         pthread_t newThread;
-        pthread_create(&newThread,0,communication_thread,(void*)newSocket);
+        //! DO NOT call delete for arg. Communication thread deletes it
+        int* arg = new int(newSocket);
+        pthread_create(&newThread,0,communication_thread,arg);
 
         
     }
