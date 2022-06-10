@@ -146,7 +146,6 @@ int main(int argc,char* argv[]){
 
             if(sofar > remained){
                 printf("Received: %s\n",fname);
-                getchar();
                 fromfgets[strlen(fromfgets)-1]='\0';
                 free(fname);
                 sofar=0;
